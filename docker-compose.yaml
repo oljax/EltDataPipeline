@@ -5,7 +5,6 @@ services:
     image: postgres:latest
     ports:
       - "5432:5432"
-      
     networks:
       - elt_network
     environment:
@@ -19,7 +18,6 @@ services:
     image: postgres:latest
     ports:
       - "5434:5432"
-      
     networks:
       - elt_network
     environment:
@@ -39,6 +37,22 @@ services:
     depends_on:
       - source_postgres
       - destination_postgres
+    
+  dbt:
+    build: .
+    container_name: dbt_container
+    platform: linux/amd64 
+    networks:
+      - elt_network
+    volumes:
+      - ./custom_postgres:/dbt
+      - ${HOME}/.dbt:/root
+    depends_on:
+      - elt_script
+    environment:
+      DBT_PROFILE: custom_postgres
+      DBT_TARGET: dev
+      DBT_PROFILES_DIR: /root
 
 networks:
   elt_network:

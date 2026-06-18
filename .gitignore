@@ -1,0 +1,5 @@
+# Ignore the Python virtual environment folder
+venv/
+.venv/
+env/
+dbt-env/
