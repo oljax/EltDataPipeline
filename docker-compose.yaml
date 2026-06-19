@@ -41,7 +41,6 @@ services:
   dbt:
     build: .
     container_name: dbt_container
-    platform: linux/amd64 
     networks:
       - elt_network
     volumes:

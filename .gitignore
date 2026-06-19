@@ -2,7 +2,7 @@
 venv/
 .venv/
 env/
-dbt-env/
+
 # Exclude all dbt log files
 logs/
 custom_postgres/logs/
