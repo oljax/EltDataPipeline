@@ -3,3 +3,7 @@ target/
 dbt_packages/
 logs/
 .env
+custom_postgres/target/
+custom_postgres/logs/
+dbt-env/
+
