@@ -3,3 +3,13 @@ venv/
 .venv/
 env/
 dbt-env/
+# Exclude all dbt log files
+logs/
+custom_postgres/logs/
+
+# Exclude all dbt compilation targets
+target/
+custom_postgres/target/
+
+# Exclude python environments
+dbt-env/
