@@ -2,7 +2,7 @@ version: '3'
 
 services:
   source_postgres:
-    image: postgres:latest
+    image: postgres:17
     ports:
       - "5432:5432"
     networks:
@@ -15,7 +15,7 @@ services:
       - ./source_db_init/init.sql:/docker-entrypoint-initdb.d/init.sql
   
   destination_postgres:
-    image: postgres:latest
+    image: postgres:17
     ports:
       - "5434:5432"
     networks:
@@ -24,35 +24,103 @@ services:
       POSTGRES_DB: destination_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: secret
-  
-  elt_script:
+  postgres:
+    image: postgres:17
+    networks:
+      - elt_network
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow_password
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  init-airflow:
     build:
-      context: ./elt
+      context: ./airflow
       dockerfile: Dockerfile
-    command: ["python", "elt_script.py"]
-    networks:
-      - elt_network
-    environment:
-      - PYTHONUNBUFFERED=1
+    command: >
+      bash -c "airflow db init && 
+               airflow users create --username airflow --password password --firstname John --lastname Doe --role Admin --email admin@example.com"
     depends_on:
-      - source_postgres
-      - destination_postgres
-    
-  dbt:
-    build: .
-    container_name: dbt_container
-    networks:
-      - elt_network
+      postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow_password@postgres:5432/airflow
+  
     volumes:
-      - ./custom_postgres:/dbt
-      - ${HOME}/.dbt:/root
+      - ./airflow/dags:/opt/airflow/dags
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOME}/.dbt:/opt/airflow/.dbt:ro
+    networks:
+      - elt_network
+
+
+  webserver:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    container_name: airflow_webserver
+    command: webserver
+    ports:
+      - "8080:8080"
     depends_on:
-      - elt_script
+      init-airflow:
+        condition: service_completed_successfully
     environment:
-      DBT_PROFILE: custom_postgres
-      DBT_TARGET: dev
-      DBT_PROFILES_DIR: /root
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow_password@postgres:5432/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__FERNET_KEY: Keh0g4TQN5rwk3fcixNFB_w9G4RCy8qu85Wo_Q2HuCA=
+      AIRFLOW__WEBSERVER__DEFAULT__USER_USERNAME: airflow
+      AIRFLOW__WEBSERVER__DEFAULT__USER_PASSWORD: password
+      AIRFLOW__WWW__USER_USERNAME: airflow
+      AIRFLOW__WWW__USER_PASSWORD: password
+      AIRFLOW__WEBSERVER__SECRET_KEY: secret
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOME}/.dbt:/opt/airflow/.dbt:ro
+      - ./elt:/opt/airflow/elt
+      - .custom_postgres:/opt/dbt
+
+    networks:
+      - elt_network
+
+  scheduler:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    user: "root"
+    container_name: airflow_scheduler
+    command: scheduler
+    depends_on:
+      init-airflow:
+        condition: service_completed_successfully
+
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow_password@postgres:5432/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__FERNET_KEY: Keh0g4TQN5rwk3fcixNFB_w9G4RCy8qu85Wo_Q2HuCA=
+      AIRFLOW__WEBSERVER__DEFAULT__USER_USERNAME: airflow
+      AIRFLOW__WEBSERVER__DEFAULT__USER_PASSWORD: password
+      AIRFLOW__WWW__USER_USERNAME: airflow
+      AIRFLOW__WWW__USER_PASSWORD: password
+      AIRFLOW__WEBSERVER__SECRET_KEY: secret
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOME}/.dbt:/opt/airflow/.dbt:ro
+      - ./elt:/opt/airflow/elt
+      - .custom_postgres:/opt/dbt
+    networks:
+      - elt_network
 
 networks:
   elt_network:
     driver: bridge
+
+

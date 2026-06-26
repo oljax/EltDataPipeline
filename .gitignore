@@ -13,3 +13,4 @@ custom_postgres/target/
 
 # Exclude python environments
 dbt-env/
+.env

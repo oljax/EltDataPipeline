@@ -1,6 +1,7 @@
 import subprocess
 import time
 
+
 def wait_for_postgres(host, max_retries=10, delay=3): 
     print(f"Checking readiness for host: {host}...", flush=True)
     retries = 0
@@ -45,7 +46,6 @@ if __name__ == "__main__":
         'dbname': 'source_db',
         'user': 'postgres',
         'password': 'secret',
-        # Use the service name from docker-compose as the hostname
         'host': 'source_postgres'
     }
     
@@ -53,7 +53,6 @@ if __name__ == "__main__":
         'dbname': 'destination_db',
         'user': 'postgres',
         'password': 'secret',
-        # Use the service name from docker-compose as the hostname
         'host': 'destination_postgres'
     }
     
